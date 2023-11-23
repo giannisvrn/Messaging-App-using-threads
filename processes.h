@@ -16,6 +16,10 @@
 struct shm_struct{ 
     sem_t sem_a;
     sem_t sem_b;
+    sem_t sem_c;
+    sem_t sem_d;
     char buf_a[BUFFER_SIZE];
     char buf_b[BUFFER_SIZE];
+    int count_a;
+    int count_b;
 };
