@@ -22,4 +22,6 @@ struct shm_struct{
     char buf_b[BUFFER_SIZE];
     int count_a;
     int count_b;
+    int new_string;
+    int last_chunk;
 };

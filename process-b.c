@@ -65,9 +65,11 @@ int main(void) {
 }
 
 void *thread_receive_function(void *arg) { 
-    char input_string[15];
+    // char input_string[15];
     struct shm_struct *shm_p = (struct shm_struct *) arg;
     int running = 1;
+    char *input_string = malloc(1024*sizeof(char));
+    int offset;
 
     while(running) {
         // wait sem_b
@@ -75,11 +77,21 @@ void *thread_receive_function(void *arg) {
             error_exit("sem_wait");
 
         // CS
-        printf("Process B getting input from process A:\n");
-        
-        strcpy(input_string,shm_p->buf_a);
+        if(shm_p->new_string) { 
+            printf("Process B getting input from process A:\n");
+            offset=0;
+            shm_p->new_string = 0;
+        }
+        // strcpy(input_string,shm_p->buf_a);
+        strncpy(input_string+offset,shm_p->buf_a,15);
+        printf("currently %s\n",input_string);
+        offset += 15;
 
-        printf("Process B read: %s",input_string);
+        if(shm_p->last_chunk) {
+            printf("Process B read: %s",input_string);
+            // free(input_string);
+            // input_string = malloc(1024*sizeof(char));
+        }  
 
         // post sem_a
         if(sem_post(&shm_p->sem_a) == -1 )

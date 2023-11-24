@@ -83,9 +83,10 @@ int main(void) {
 }
 
 void *thread_send_function(void *arg) { 
-    char input_string[15];
+    char *input_string = malloc(1024*sizeof(char));
     struct shm_struct *shm_p = (struct shm_struct *) arg;
     int running = 1;
+    int same_string = 0,offset = 0,chunks = 0,i=0;
 
     while(running) { 
         // wait sem_a
@@ -93,19 +94,40 @@ void *thread_send_function(void *arg) {
             error_exit("sem_wait");
 
         // CS
-        printf("Process A waiting for input:\n");
-        fgets(input_string,15,stdin); // 15 proswrino
-        
-        strcpy(shm_p->buf_a,input_string);
+        if( !same_string) {
+            printf("Process A waiting for input:\n");
+            fgets(input_string,1024,stdin); 
+            offset = 0;
+            i=0;
+            chunks = strlen(input_string) / 15;
+            if( (strlen(input_string)-1) % 15)
+                chunks++;
+            same_string = 1;
+            shm_p->new_string=1;
+            shm_p->count_a++;
+        }
+        else {
+            offset+= 15;
+        }
+        if( ++i == chunks) { 
+            same_string = 0;
+            shm_p->last_chunk=1;
+        }
+        else
+            shm_p->last_chunk=0;
+        strncpy(shm_p->buf_a,input_string+offset,15);
+        printf("sending %s\n",shm_p->buf_a);
 
         // post sem_b
         if(sem_post(&shm_p->sem_b) == -1 )
             error_exit("sem_post");
         
-        if(strncmp(input_string,"BYE",3) == 0) 
-            running = 0;
-        else 
-            shm_p->count_a++;
+        if(strncmp(input_string,"BYE",3) == 0) {
+            running = 0; 
+            shm_p->count_a --;
+        }
+            
+        sleep(0.00001); // is that OK??
     }
 
     return NULL;
