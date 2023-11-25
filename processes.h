@@ -13,6 +13,14 @@
 
 #define error_exit(error_message) do {perror(error_message); exit(EXIT_FAILURE); } while(0)
 
+void init_str(char *input_string) { 
+    int i = 0;
+    while(input_string[i] != '\0') { 
+        strcpy(&input_string[i],"");
+        i++;
+    }
+}
+
 struct shm_struct{ 
     sem_t sem_a;
     sem_t sem_b;
@@ -22,6 +30,8 @@ struct shm_struct{
     char buf_b[BUFFER_SIZE];
     int count_a;
     int count_b;
-    int new_string;
-    int last_chunk;
+    int new_string_received_a;
+    int new_string_received_b;
+    int last_chunk_a;
+    int last_chunk_b;
 };

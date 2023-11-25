@@ -3,6 +3,10 @@
 void *thread_send_function(void *args);
 void *thread_receive_function(void *args);
 
+pthread_t thread_to_cancel;
+pthread_t thread_to_cancel2;
+
+
 int main(void) { 
     struct shm_struct *shm_p;
     int fd;
@@ -82,83 +86,93 @@ int main(void) {
     exit(EXIT_SUCCESS);
 }
 
+
 void *thread_send_function(void *arg) { 
-    char *input_string = malloc(1024*sizeof(char));
-    struct shm_struct *shm_p = (struct shm_struct *) arg;
-    int running = 1;
-    int same_string = 0,offset = 0,chunks = 0,i=0;
+    char *input_string = (char *)malloc(1000 * sizeof(char));
+    struct shm_struct *shm_p = (struct shm_struct *)arg;
+    int running = 1,new_input=1,offset,i=0,chunks;
+
+    thread_to_cancel2 = pthread_self();
 
     while(running) { 
-        // wait sem_a
-        if(sem_wait(&shm_p->sem_a) == -1 )
+        // sem down
+        if( sem_wait(&shm_p->sem_a) == -1)
             error_exit("sem_wait");
 
         // CS
-        if( !same_string) {
-            printf("Process A waiting for input:\n");
-            fgets(input_string,1024,stdin); 
+        init_str(shm_p->buf_a);
+        if( new_input) { 
+            fgets(input_string,1000,stdin);
+            shm_p->new_string_received_a = 1;
             offset = 0;
-            i=0;
-            chunks = strlen(input_string) / 15;
-            if( (strlen(input_string)-1) % 15)
-                chunks++;
-            same_string = 1;
-            shm_p->new_string=1;
-            shm_p->count_a++;
+            new_input = 0;
+            shm_p->last_chunk_a = 0;
+            chunks = strlen(input_string) / BUFFER_SIZE;
+            if(strlen(input_string) % BUFFER_SIZE)
+                chunks ++;
+            i = 0;
+
+            if(strncmp(input_string,"BYE",3) == 0) {
+                running = 0;
+                pthread_cancel(thread_to_cancel);
+            }
+            else 
+                shm_p->count_a++;
         }
-        else {
-            offset+= 15;
+        else  {
+            shm_p->new_string_received_a = 0;
+            offset += BUFFER_SIZE;
         }
         if( ++i == chunks) { 
-            same_string = 0;
-            shm_p->last_chunk=1;
+            shm_p->last_chunk_a = 1;
+            new_input = 1;
         }
-        else
-            shm_p->last_chunk=0;
-        strncpy(shm_p->buf_a,input_string+offset,15);
-        printf("sending %s\n",shm_p->buf_a);
+        strncpy(shm_p->buf_a,input_string+offset,BUFFER_SIZE);
+        printf("sending:%s\n",shm_p->buf_a);
 
-        // post sem_b
-        if(sem_post(&shm_p->sem_b) == -1 )
+        // sem up
+        if( sem_post(&shm_p->sem_b) == -1)
             error_exit("sem_post");
-        
-        if(strncmp(input_string,"BYE",3) == 0) {
-            running = 0; 
-            shm_p->count_a --;
-        }
-            
-        sleep(0.00001); // is that OK??
+
     }
-
     return NULL;
-
 }
 
 void *thread_receive_function(void *arg) { 
-    char input_string[15];
-    struct shm_struct *shm_p = (struct shm_struct *) arg;
-    int running = 1;
+    char *input_string = (char *)malloc(1000 * sizeof(char));
+    struct shm_struct *shm_p = (struct shm_struct *)arg;
+    int running = 1,offset=0;
+
+    thread_to_cancel = pthread_self();
 
     while(running) {
-        // wait sem_d
-        if(sem_wait(&shm_p->sem_d) == -1 )
+        // sem down
+        if( sem_wait(&shm_p->sem_d) == -1)
             error_exit("sem_wait");
 
         // CS
-        printf("Process A getting input from process B:\n");
-        
-        strcpy(input_string,shm_p->buf_b);
+        if( shm_p->new_string_received_b) { 
+            init_str(input_string);
+            offset = 0;
+            if(strncmp(shm_p->buf_b,"BYE",3) == 0) {
+                running =0;
+                pthread_cancel(thread_to_cancel2);
+            }
+        }
+        else { 
+            offset += 15;
+        }
 
-        printf("Process A read: %s",input_string);
+        strncpy(input_string+offset,shm_p->buf_b,BUFFER_SIZE);
 
-        // post sem_c
-        if(sem_post(&shm_p->sem_c) == -1 )
+        if(shm_p->last_chunk_b) { 
+            printf("Process A read:%s\n",input_string);
+        }
+
+        // sem up
+        if( sem_post(&shm_p->sem_c) == -1)
             error_exit("sem_post");
-    
-        if(strncmp(input_string,"BYE",3) == 0) 
-            running = 0;
     }
 
     return NULL;
-
 }
