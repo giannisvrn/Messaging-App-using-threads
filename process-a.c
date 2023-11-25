@@ -65,6 +65,8 @@ int main(void) {
     shm_p->count_messages_b = 0;
     shm_p->count_chunks_a = 0;
     shm_p->count_chunks_b = 0;
+    shm_p->total_time_waiting_a=0;
+    shm_p->total_time_waiting_b=0;
 
     res = pthread_create(&thread_send,NULL,thread_send_function,(void *) shm_p);
     if (res != 0) 
@@ -83,7 +85,7 @@ int main(void) {
         error_exit("pthread_join");
 
     float avg_chunks_a = shm_p->count_messages_a > 0 ? (float) shm_p->count_chunks_a / shm_p->count_messages_a : 0;
-    float avg_chunks_b = shm_p->count_messages_a > 0 ? (float) shm_p->count_chunks_b / shm_p->count_messages_b : 0;
+    float avg_chunks_b = shm_p->count_messages_b > 0 ? (float) shm_p->count_chunks_b / shm_p->count_messages_b : 0;
 
     printf("Number of messages sent:%d\n",shm_p->count_messages_a);
     printf("Number of messages received:%d\n",shm_p->count_messages_b);
@@ -91,9 +93,12 @@ int main(void) {
     printf("Number of chunks sent:%d\n",shm_p->count_chunks_a);
     printf("Number of chunks received:%d\n",shm_p->count_chunks_b);
 
-    printf("Average of chunks sent:%f\n",avg_chunks_a);
-    printf("Average of chunks received:%f\n",avg_chunks_b);
+    printf("Average of chunks sent:%.2f\n",avg_chunks_a);
+    printf("Average of chunks received:%.2f\n",avg_chunks_b);
 
+    float avg_time_waiting = shm_p->count_messages_b > 0 ? (float) shm_p->total_time_waiting_a / shm_p->count_messages_b : 0;
+    printf("Average time waiting to receive first chunk:%.2f\n",avg_time_waiting);
+    
     shm_unlink(path);
     exit(EXIT_SUCCESS);
 }
@@ -157,15 +162,20 @@ void *thread_receive_function(void *arg) {
     char *input_string = (char *)malloc(1000 * sizeof(char));
     struct shm_struct *shm_p = (struct shm_struct *)arg;
     int running = 1,offset=0;
+    struct timeval temp_time;
+    struct timeval temp_time2;
 
     thread_to_cancel = pthread_self();
 
+    gettimeofday(&temp_time,NULL);
     while(running) {
         // sem down
         if( sem_wait(&shm_p->sem_d) == -1)
             error_exit("sem_wait");
 
         // CS
+        gettimeofday(&temp_time2,NULL);
+        shm_p->total_time_waiting_a += temp_time2.tv_sec - temp_time.tv_sec;
         if( shm_p->new_string_received_b) { 
             init_str(input_string);
             offset = 0;
@@ -182,6 +192,7 @@ void *thread_receive_function(void *arg) {
 
         if(shm_p->last_chunk_b) { 
             printf("Process A read:%s\n",input_string);
+            gettimeofday(&temp_time,NULL);
         }
 
         // sem up

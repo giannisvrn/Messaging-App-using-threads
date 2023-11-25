@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <pthread.h>
+#include <sys/time.h>
 
 
 #define BUFFER_SIZE 15
@@ -32,6 +33,8 @@ struct shm_struct{
     int count_messages_b;
     int count_chunks_a;
     int count_chunks_b;
+    int total_time_waiting_a;
+    int total_time_waiting_b;
     int new_string_received_a;
     int new_string_received_b;
     int last_chunk_a;
