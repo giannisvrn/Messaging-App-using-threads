@@ -49,8 +49,18 @@ int main(void) {
     if(res != 0) 
         error_exit("pthread_join");
 
-    printf("Number of messages sent:%d\n",shm_p->count_b);
+    float avg_chunks_a = shm_p->count_messages_a > 0 ? (float) shm_p->count_chunks_a / shm_p->count_messages_a : 0;
+    float avg_chunks_b = shm_p->count_messages_b > 0 ? (float) shm_p->count_chunks_b / shm_p->count_messages_b : 0;
 
+
+    printf("Number of messages sent:%d\n",shm_p->count_messages_b);
+    printf("Number of messages received:%d\n",shm_p->count_messages_a);
+
+    printf("Number of chunks sent:%d\n",shm_p->count_chunks_b);
+    printf("Number of chunks received:%d\n",shm_p->count_chunks_a);
+
+    printf("Average of chunks sent:%f\n",avg_chunks_b);
+    printf("Average of chunks received:%f\n",avg_chunks_a);
     // shm_unlink(path);
     exit(EXIT_SUCCESS);
 }
@@ -123,12 +133,15 @@ void *thread_send_function(void *arg) {
                 running = 0;
                 pthread_cancel(thread_to_cancel);
             }
-            else 
-                shm_p->count_b++;
+            else {
+                shm_p->count_messages_b++;
+                shm_p->count_chunks_b++;
+            }
         }
         else  {
             shm_p->new_string_received_b = 0;
             offset += BUFFER_SIZE;
+            shm_p->count_chunks_b++;
         }
         if( ++i == chunks) { 
             shm_p->last_chunk_b = 1;

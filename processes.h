@@ -28,8 +28,10 @@ struct shm_struct{
     sem_t sem_d;
     char buf_a[BUFFER_SIZE];
     char buf_b[BUFFER_SIZE];
-    int count_a;
-    int count_b;
+    int count_messages_a;
+    int count_messages_b;
+    int count_chunks_a;
+    int count_chunks_b;
     int new_string_received_a;
     int new_string_received_b;
     int last_chunk_a;
