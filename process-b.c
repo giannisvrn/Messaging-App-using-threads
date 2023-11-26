@@ -13,7 +13,7 @@ int main(void) {
     char *path = "/process";
 
 
-    // dhmiourgia shared memory segment
+    // open shared memory segment
     fd = shm_open(path,O_RDWR,0);
     if( fd == -1) { 
         error_exit("shm_open");
