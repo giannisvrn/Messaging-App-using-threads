@@ -13,7 +13,7 @@ int main(void) {
     char *path = "/process";
 
 
-    // create shared memory segment
+    // dhmiourgia shared memory segment
     fd = shm_open(path,O_RDWR,0);
     if( fd == -1) { 
         error_exit("shm_open");
@@ -28,7 +28,7 @@ int main(void) {
 
     close(fd);
 
-    // create the two threads
+    // create twn dyo threads
     pthread_t thread_send;
     pthread_t thread_receive;
     int res;
@@ -41,7 +41,7 @@ int main(void) {
         error_exit("pthread_create");
 
 
-    // join the two threads
+    // join ta dyo threads
     res = pthread_join(thread_send,NULL);
     if(res != 0) 
         error_exit("pthread_join");
@@ -64,7 +64,7 @@ int main(void) {
     
     float avg_time_waiting = shm_p->count_messages_a > 0 ? (float) shm_p->total_time_waiting_b / shm_p->count_messages_a : 0;
     printf("Average time waiting to receive first chunk:%.2f\n",avg_time_waiting);
-    // shm_unlink(path);
+    
     exit(EXIT_SUCCESS);
 }
 
@@ -89,7 +89,7 @@ void *thread_receive_function(void *arg) {
         if( shm_p->new_string_received_a) { 
             init_str(input_string);
             offset = 0;
-            if(strncmp(shm_p->buf_a,"BYE",3) == 0) {
+            if(strncmp(shm_p->buf_a,"BYE",3) == 0 && shm_p->buf_a[3] == '\n') {
                 running =0;
                 pthread_cancel(thread_to_cancel2);
             }
@@ -138,7 +138,7 @@ void *thread_send_function(void *arg) {
                 chunks ++;
             i = 0;
 
-            if(strncmp(input_string,"BYE",3) == 0) {
+            if(strncmp(input_string,"BYE",3) == 0 && input_string[3] == '\n') {
                 running = 0;
                 pthread_cancel(thread_to_cancel);
             }

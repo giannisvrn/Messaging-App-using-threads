@@ -3,6 +3,7 @@
 void *thread_send_function(void *args);
 void *thread_receive_function(void *args);
 
+// ena thread kanei cancel to allo ean o xristis(h to arxeio) exoun steilei to mhnyma BYE
 pthread_t thread_to_cancel;
 pthread_t thread_to_cancel2;
 
@@ -13,15 +14,14 @@ int main(void) {
     char *path = "/process";
 
 
-    // create shared memory segment
-    shm_unlink(path); // unlink in case the file is open
-    fd = shm_open(path,O_CREAT | O_EXCL | O_RDWR,0600); // mode = 0600 na to ksanadw
+    // dhmiourgia shared memory segment
+    shm_unlink(path); // unlink se periptwsi pou to path einai hdh anoixto
+    fd = shm_open(path,O_CREAT | O_EXCL | O_RDWR,0600);
     if( fd == -1) { 
         error_exit("shm_open");
     }
 
-
-    // set the size of the shared memory segment into our struct 
+    // thetoume to megethos tou shared memory segment oso kai to struct
     if( ftruncate(fd,sizeof(struct shm_struct)) == -1) { 
         error_exit("ftruncate");
     }
@@ -56,7 +56,7 @@ int main(void) {
 
 
 
-    // create the two threads
+    // dhmiourgia twn dyo threads
     pthread_t thread_send;
     pthread_t thread_receive;
     int res;
@@ -76,7 +76,7 @@ int main(void) {
         error_exit("pthread_create");
 
 
-    // join the two threads
+    // join ta dyo threads
     res = pthread_join(thread_send,NULL);
     if(res != 0) 
         error_exit("pthread_join");
@@ -105,7 +105,7 @@ int main(void) {
 
 
 void *thread_send_function(void *arg) { 
-    char *input_string = (char *)malloc(1000 * sizeof(char));
+    char *input_string = (char *)malloc(1000 * sizeof(char));   // to megisto input mporei na einai 1000 xaraktires
     struct shm_struct *shm_p = (struct shm_struct *)arg;
     int running = 1,new_input=1,offset,i=0,chunks;
 
@@ -117,37 +117,38 @@ void *thread_send_function(void *arg) {
             error_exit("sem_wait");
 
         // CS
-        init_str(shm_p->buf_a);
-        if( new_input) { 
+        init_str(shm_p->buf_a);   // svinoume kathe fora ta periexomena tou buffer 
+        if( new_input) {
             fgets(input_string,1000,stdin);
             shm_p->new_string_received_a = 1;
-            offset = 0;
-            new_input = 0;
+            offset = 0;  // diavazoume to string apo tin arxi 
+            new_input = 0;  // tha ksanaginei 1 otan ftasoume sto teleytaio chunk tou mhnymatos 
             shm_p->last_chunk_a = 0;
             chunks = strlen(input_string) / BUFFER_SIZE;
-            if(strlen(input_string) % BUFFER_SIZE)
+            if(strlen(input_string) % BUFFER_SIZE)  // ean h diairesh exei ypoloipo, tote prepei na prosthesoume akoma ena chunk 
                 chunks ++;
-            i = 0;
+            i = 0;  // metavliti gia na gnwrizoume se poio chunk vriskomaste 
 
-            if(strncmp(input_string,"BYE",3) == 0) {
+            if(strncmp(input_string,"BYE",3) == 0 && input_string[3] == '\n') {  // sthn eisodo apo ton xristi, h fgets vazei meta apo to input thn allagi grammis
                 running = 0;
-                pthread_cancel(thread_to_cancel);
+                pthread_cancel(thread_to_cancel);  // cancel to allo thread 
             }
             else {
                 shm_p->count_messages_a++;
                 shm_p->count_chunks_a++;
             }
         }
-        else  {
+        else  {  // otan den exoume kainourio input, diavazoume to epomeno chunk tou mhnymatos
             shm_p->new_string_received_a = 0;
             offset += BUFFER_SIZE;
             shm_p->count_chunks_a++;
         }
         if( ++i == chunks) { 
-            shm_p->last_chunk_a = 1;
+            shm_p->last_chunk_a = 1;  // vriskomaste sto teleytaio chunk tou mhnymatosn
             new_input = 1;
         }
-        strncpy(shm_p->buf_a,input_string+offset,BUFFER_SIZE);
+
+        strncpy(shm_p->buf_a,input_string+offset,BUFFER_SIZE); // antigrafoume ston buffer tous xaraktires tou chunk sto opoio vriskomaste 
         printf("sending:%s\n",shm_p->buf_a);
 
         // sem up
@@ -167,32 +168,32 @@ void *thread_receive_function(void *arg) {
 
     thread_to_cancel = pthread_self();
 
-    gettimeofday(&temp_time,NULL);
+    gettimeofday(&temp_time,NULL);   // initialize to temp_time prin apo thn prwth epanalipsi 
     while(running) {
         // sem down
         if( sem_wait(&shm_p->sem_d) == -1)
             error_exit("sem_wait");
 
         // CS
-        gettimeofday(&temp_time2,NULL);
-        shm_p->total_time_waiting_a += temp_time2.tv_sec - temp_time.tv_sec;
+        gettimeofday(&temp_time2,NULL);  // temp_time2 = h xronikh stigmi opou erxetai mhnyma apo to allo process 
+        shm_p->total_time_waiting_a += temp_time2.tv_sec - temp_time.tv_sec;  // prosthetoume ston synoliko xrono thn diafora 
         if( shm_p->new_string_received_b) { 
-            init_str(input_string);
+            init_str(input_string);  // efoson exoume kainourio mhnyma, diagrafoume ta periexomena pou yphrxan apo prin
             offset = 0;
-            if(strncmp(shm_p->buf_b,"BYE",3) == 0) {
+            if(strncmp(shm_p->buf_b,"BYE",3) == 0 && shm_p->buf_b[3] == '\n') {
                 running =0;
                 pthread_cancel(thread_to_cancel2);
             }
         }
         else { 
-            offset += 15;
+            offset += BUFFER_SIZE;
         }
 
         strncpy(input_string+offset,shm_p->buf_b,BUFFER_SIZE);
 
         if(shm_p->last_chunk_b) { 
             printf("Process A read:%s\n",input_string);
-            gettimeofday(&temp_time,NULL);
+            gettimeofday(&temp_time,NULL);   // otan teleiwnoume me to teleytaio chunk tou mhnymatos, ksekinaei h metrhsh gia to pote tha erthei kainourio mhnyma 
         }
 
         // sem up
