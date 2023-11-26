@@ -23,6 +23,11 @@ void init_str(char *input_string) {
     }
 }
 
+// xrhsimopoietai etsi wste ta threads na mporoun na kanoun free ta strings 
+void cleanup_handler(void *arg) { 
+    free(arg);
+}
+
 struct shm_struct{ 
     sem_t sem_a;   // semaphore gia read tou process A apo ton xristi(h arxeio)
     sem_t sem_b;   // sempaphore gia receive tou process B apo to process A

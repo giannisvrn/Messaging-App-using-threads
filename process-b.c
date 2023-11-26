@@ -76,6 +76,9 @@ void *thread_receive_function(void *arg) {
     struct timeval temp_time2;
 
     thread_to_cancel = pthread_self();
+    pthread_cleanup_push(cleanup_handler,(void *)input_string);
+
+    input_string[0] = '\0';  // initiliaze to input string se keno 
 
     gettimeofday(&temp_time,NULL);
     while(running) {
@@ -89,7 +92,7 @@ void *thread_receive_function(void *arg) {
         if( shm_p->new_string_received_a) { 
             init_str(input_string);
             offset = 0;
-            if(strncmp(shm_p->buf_a,"BYE",3) == 0 && shm_p->buf_a[3] == '\n') {
+            if(strncmp(shm_p->buf_a,"#BYE#",5) == 0 && shm_p->buf_a[5] == '\n') {
                 running =0;
                 pthread_cancel(thread_to_cancel2);
             }
@@ -110,6 +113,7 @@ void *thread_receive_function(void *arg) {
             error_exit("sem_post");
     }
 
+    pthread_cleanup_pop(1);
     return NULL;
 }
 
@@ -119,6 +123,7 @@ void *thread_send_function(void *arg) {
     int running = 1,new_input=1,offset,i=0,chunks;
 
     thread_to_cancel2 = pthread_self();
+    pthread_cleanup_push(cleanup_handler,(void *)input_string);
 
     while(running) { 
         // sem down
@@ -138,7 +143,7 @@ void *thread_send_function(void *arg) {
                 chunks ++;
             i = 0;
 
-            if(strncmp(input_string,"BYE",3) == 0 && input_string[3] == '\n') {
+            if(strncmp(input_string,"#BYE#",5) == 0 && input_string[5] == '\n') {
                 running = 0;
                 pthread_cancel(thread_to_cancel);
             }
@@ -164,5 +169,7 @@ void *thread_send_function(void *arg) {
             error_exit("sem_post");
 
     }
+
+    pthread_cleanup_pop(1);
     return NULL;
 }

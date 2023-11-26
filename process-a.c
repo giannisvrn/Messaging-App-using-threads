@@ -67,6 +67,8 @@ int main(void) {
     shm_p->count_chunks_b = 0;
     shm_p->total_time_waiting_a=0;
     shm_p->total_time_waiting_b=0;
+    shm_p->buf_a[0] = '\0';
+    shm_p->buf_b[0] = '\0';
 
     res = pthread_create(&thread_send,NULL,thread_send_function,(void *) shm_p);
     if (res != 0) 
@@ -109,7 +111,8 @@ void *thread_send_function(void *arg) {
     struct shm_struct *shm_p = (struct shm_struct *)arg;
     int running = 1,new_input=1,offset,i=0,chunks;
 
-    thread_to_cancel2 = pthread_self();
+    thread_to_cancel2 = pthread_self();   // se periptwsi pou xreiaste sto allo thread na kanei cancel ayto
+    pthread_cleanup_push(cleanup_handler,(void *)input_string); // synarthsh gia free tou input string
 
     while(running) { 
         // sem down
@@ -129,7 +132,7 @@ void *thread_send_function(void *arg) {
                 chunks ++;
             i = 0;  // metavliti gia na gnwrizoume se poio chunk vriskomaste 
 
-            if(strncmp(input_string,"BYE",3) == 0 && input_string[3] == '\n') {  // sthn eisodo apo ton xristi, h fgets vazei meta apo to input thn allagi grammis
+            if(strncmp(input_string,"#BYE#",5) == 0 && input_string[5] == '\n') {  // sthn eisodo apo ton xristi, h fgets vazei meta apo to input thn allagi grammis
                 running = 0;
                 pthread_cancel(thread_to_cancel);  // cancel to allo thread 
             }
@@ -144,7 +147,7 @@ void *thread_send_function(void *arg) {
             shm_p->count_chunks_a++;
         }
         if( ++i == chunks) { 
-            shm_p->last_chunk_a = 1;  // vriskomaste sto teleytaio chunk tou mhnymatosn
+            shm_p->last_chunk_a = 1;  // vriskomaste sto teleytaio chunk tou mhnymatos
             new_input = 1;
         }
 
@@ -156,6 +159,8 @@ void *thread_send_function(void *arg) {
             error_exit("sem_post");
 
     }
+
+    pthread_cleanup_pop(1);
     return NULL;
 }
 
@@ -166,7 +171,10 @@ void *thread_receive_function(void *arg) {
     struct timeval temp_time;
     struct timeval temp_time2;
 
-    thread_to_cancel = pthread_self();
+    thread_to_cancel = pthread_self();   // se periptwsi pou xreiaste sto allo thread na kanei cancel ayto
+    pthread_cleanup_push(cleanup_handler,(void *)input_string);  // synarthsh gia free tou input string
+
+    input_string[0] = '\0'; // initiliaze to input string se keno 
 
     gettimeofday(&temp_time,NULL);   // initialize to temp_time prin apo thn prwth epanalipsi 
     while(running) {
@@ -180,7 +188,7 @@ void *thread_receive_function(void *arg) {
         if( shm_p->new_string_received_b) { 
             init_str(input_string);  // efoson exoume kainourio mhnyma, diagrafoume ta periexomena pou yphrxan apo prin
             offset = 0;
-            if(strncmp(shm_p->buf_b,"BYE",3) == 0 && shm_p->buf_b[3] == '\n') {
+            if(strncmp(shm_p->buf_b,"#BYE#",5) == 0 && shm_p->buf_b[5] == '\n') {
                 running =0;
                 pthread_cancel(thread_to_cancel2);
             }
@@ -201,5 +209,6 @@ void *thread_receive_function(void *arg) {
             error_exit("sem_post");
     }
 
+    pthread_cleanup_pop(1);
     return NULL;
 }
